@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3005",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -14,11 +14,11 @@
     "@iconify/react": "^5.0.1",
     "@mui/material": "^5.15.20",
     "@reduxjs/toolkit": "^2.2.5",
-    "@thatopen/components": "^2.0.3",
-    "@thatopen/components-front": "^2.0.11",
-    "@thatopen/fragments": "^2.0.5",
-    "@thatopen/ui": "^2.0.2",
-    "@thatopen/ui-obc": "^2.0.10",
+    "@thatopen/components": "^2.4.3",
+    "@thatopen/components-front": "^2.4.2",
+    "@thatopen/fragments": "^2.4.0",
+    "@thatopen/ui": "^2.4.1",
+    "@thatopen/ui-obc": "^2.4.1",
     "install": "^0.13.0",
     "jszip": "^3.10.1",
     "next": "14.1.4",
@@ -29,7 +29,7 @@
     "redux": "^5.0.1",
     "redux-persist": "^6.0.0",
     "three": "^0.160.1",
-    "web-ifc": "^0.0.53",
+    "web-ifc": "^0.0.66",
     "yarn": "^1.22.22"
   },
   "devDependencies": {

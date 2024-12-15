@@ -2,14 +2,26 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 import * as WEBIFC from "web-ifc";
+import * as CUI from "@thatopen/ui-obc";
 import * as BUI from "@thatopen/ui";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
+import * as THREE from 'three';
 
 import ProjectInformation from "../bim-components/Panels/ProjectInformation";
 import { Box } from "@mui/material";
+import Camera from "../bim-components/Toolbars/Sections/Camera";
+import Selection from "../bim-components/Toolbars/Sections/Selection";
+import { AppManager } from "../bim-components/AppManager";
+import { loadModelByUrl } from "./viewer";
+
+
+
 
 const ModelViewer = () => {
+
+
+
   const containerRef = useRef(null);
   const componentsRef = useRef(null);
 
@@ -20,15 +32,45 @@ const ModelViewer = () => {
     componentsRef.current = components;
     const worlds = components.get(OBC.Worlds);
 
+    const viewport = document.createElement("bim-viewport");
+    viewport.name = "viewer";
+
     const world = worlds.create();
     world.scene = new OBC.SimpleScene(components);
     world.renderer = new OBC.SimpleRenderer(components, containerRef.current);
     world.camera = new OBC.SimpleCamera(components);
+    
+    /*const viewCube = document.createElement("bim-view-cube");
+    viewCube.camera = world.camera.three;
+    viewport.append(viewCube);
+
+    world.camera.controls.addEventListener("update", () => {
+      if(viewCube){
+        viewCube.updateOrientation();
+      }
+    });*/
 
     components.init();
 
     world.camera.controls.setLookAt(12, 6, 8, 0, 0, -10);
     world.scene.setup();
+
+    document.addEventListener("keydown", (event) => {
+      if (world){
+        if (event.key === 'w' || event.key === 'W') {
+          world.camera.controls.forward(0.25, true)
+        }
+        else if (event.key === 's' || event.key === 'S') {
+          world.camera.controls.forward(-0.25, true)
+        }
+        else if (event.key === 'a' || event.key === 'A') {
+          world.camera.controls.rotateAzimuthTo( -30 * THREE.MathUtils.DEG2RAD, true );
+        }
+        else if (event.key === 'd' || event.key === 'D') {
+          world.camera.controls.rotateAzimuthTo( 30 * THREE.MathUtils.DEG2RAD, true );
+        }
+      }
+    });
 
     const grids = components.get(OBC.Grids);
     grids.create(world);
@@ -37,10 +79,23 @@ const ModelViewer = () => {
     highlighter.setup({ world });
     highlighter.zoomToSelection = true;
 
+    
     const fragments = components.get(OBC.FragmentsManager);
     const ifcLoader = components.get(OBC.IfcLoader);
 
     (async () => {
+
+      const currentUrl = window.location.href;
+
+      // Parse the URL
+      const url = new URL(currentUrl);
+
+      // Get the "source" query parameter
+      const sourceUrl = url.searchParams.get("source");
+      if(sourceUrl){
+        await loadModelByUrl(sourceUrl, components, world);
+      }
+     
       await ifcLoader.setup();
 
       const excludedCats = [
@@ -57,14 +112,14 @@ const ModelViewer = () => {
       ifcLoader.settings.webIfc.OPTIMIZE_PROFILES = true;
 
       let model;
-      async function loadIfc() {
+      async function loadIfc(filepath) {
         const file = await fetch(
-          "../ifc/01.ifc"
+          filepath
         );
         const data = await file.arrayBuffer();
         const buffer = new Uint8Array(data);
         model = await ifcLoader.load(buffer);
-        model.name = "example";
+        model.name = filepath //"example";
         world.scene.three.add(model);
         const indexer = components.get(OBC.IfcRelationsIndexer);
         await indexer.process(model);
@@ -121,7 +176,7 @@ const ModelViewer = () => {
 
       const projectInformationPanel = ProjectInformation(components);
 
-      const panel = BUI.Component.create(() => {
+      const buttonPanel = BUI.Component.create(() => {
         return BUI.html`
           <bim-toolbar-section 
             active 
@@ -142,15 +197,6 @@ const ModelViewer = () => {
               flex-direction: row;  
             "
           >
-          <bim-button 
-            style="margin: 0 5px;" 
-            label="Load IFC" 
-            icon="fluent:puzzle-cube-piece-20-filled" tooltip-title="Load IFC"
-            tooltip-text="Loads an IFC file into the scene. The IFC gets automatically converted to Fragments."
-            @click="${() => {
-              loadIfc();
-            }}"
-          ></bim-button>  
           <bim-button
           data-ui-id="import-ifc"
           label="Upload IFC"
@@ -189,22 +235,96 @@ const ModelViewer = () => {
           <bim-tabs 
             active 
             label="IFC Loader" 
-            style="position: fixed; top: 5px; left: 5px; height: auto; width: 300px;"
+            style="position: fixed; top: 5px; left: 5px; height: auto; width: 500px;"
           > 
             <bim-tab name="project" label="Project" icon="ph:building-fill">
               ${projectInformationPanel}
+            </bim-tab>
+            <bim-tab label="Selection">
+              <bim-toolbar>
+                ${Camera(world)}
+                ${Selection(components, world)}
+              </bim-toolbar>
             </bim-tab>
           </bim-tabs> 
         `;
       });
 
-      document.body.append(projectPanel);
-      document.body.append(panel);
-
-      fragments.onFragmentsLoaded.add((model) => {
-        console.log(model);
+      const toolbar = BUI.Component.create(() => {
+        return BUI.html`
+          <bim-tabs floating style="justify-self: center; border-radius: 0.5rem;">
+          </bim-tabs>
+        `;
       });
+
+
+      const appManager = components.get(AppManager);
+      const viewportGrid = appManager.grids.get("viewport");
+
+      const [classificationsTree, updateClassificationsTree] = CUI.tables.classificationTree({
+        components,
+        classifications: [],
+      });
+      const panel2 = BUI.Component.create(() => {
+        return BUI.html`
+         <bim-panel label="Classifications Tree">
+          <bim-panel-section label="Classifications">
+            ${classificationsTree}
+          </bim-panel-section>
+         </bim-panel> 
+        `;
+      });
+
+      const [modelsList] = CUI.tables.modelsList({
+        components,
+        tags: { schema: true, viewDefinition: false },
+        actions: { download: false },
+      });
+
+      const panel3 = BUI.Component.create(() => {
+        const [loadIfcBtn] = CUI.buttons.loadIfc({ components });
+      
+        return BUI.html`
+         <bim-panel label="IFC Models" style="position: fixed; top: 5px; left: 5px; height: auto; width: 500px;">
+          <bim-panel-section label="Importing">
+            ${loadIfcBtn}
+          </bim-panel-section>
+          <bim-panel-section icon="mage:box-3d-fill" label="Loaded Models">
+            ${modelsList}
+          </bim-panel-section>
+         </bim-panel> 
+        `;
+      });
+
+      const app = document.createElement("bim-grid");
+      app.layouts = {
+        main: {
+          template: `
+            "projectPanel viewport" 
+            / 25rem 1fr
+            "panel3"
+            "buttonPanel"
+          `,
+          elements: {  projectPanel, buttonPanel,  viewport }, //panel3, 
+        },
+      };
+
+      app.layout = "main";
+      document.body.append(app);
+      
+      
+      
+      
+      //document.body.append(projectPanel);
+      //document.body.append(panel);
+      
+
+      //fragments.onFragmentsLoaded.add((model) => {
+      //  console.log(model);
+      //});
     })();
+
+    
 
     return () => {
       components.dispose();
