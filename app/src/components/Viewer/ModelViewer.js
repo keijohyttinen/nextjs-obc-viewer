@@ -15,11 +15,21 @@ import Selection from "../bim-components/Toolbars/Sections/Selection";
 import { AppManager } from "../bim-components/AppManager";
 import { loadModelByUrl } from "./viewer";
 
+// Safari has issue:
+// TypeError: fileHandle.createWritable is not a function. (In 'fileHandle.createWritable()', 'fileHandle.createWritable' is undefined)
+// https://github.com/ThatOpen/engine_components/issues/508
+
+// Use url:
+// - http://localhost:3005?source=https://raw.githubusercontent.com/ThatOpen/engine_components/refs/heads/main/resources/streaming/small.ifc-processed.json
+// - http://localhost:3005?source=http://localhost:3000/files/models/BwFYh7Gh/ifc-processed.json
 
 
+
+// file: https://raw.githubusercontent.com/ThatOpen/engine_components/refs/heads/main/resources/streaming/small.ifc-processed-properties.json
+//       https://raw.githubusercontent.com/ThatOpen/engine_components/refs/heads/main/resources/streaming/ifc-processed-properties.json
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const ModelViewer = () => {
-
 
 
   const containerRef = useRef(null);
@@ -51,10 +61,36 @@ const ModelViewer = () => {
     });*/
 
     components.init();
-
-    world.camera.controls.setLookAt(12, 6, 8, 0, 0, -10);
     world.scene.setup();
+    world.camera.controls.setLookAt(12, 6, 8, 0, 0, -10);
 
+    const grids = components.get(OBC.Grids);
+    grids.create(world);
+
+    const currentUrl = window.location.href;
+
+    // Parse the URL
+    const url = new URL(currentUrl);
+  
+    // Get the "source" query parameter
+    let sourceUrl = url.searchParams.get("source");
+    //sourceUrl = "https://raw.githubusercontent.com/ThatOpen/engine_components/refs/heads/main/resources/streaming/small.ifc-processed.json"
+
+    const baseUrl = sourceUrl.slice(0, sourceUrl.lastIndexOf("/") + 1);
+
+    const loader = components.get(OBF.IfcStreamer);
+    loader.world = world;
+    loader.url = baseUrl;
+    loader.useCache = true;
+    loader.culler.threshold = 20;
+    loader.culler.maxHiddenTime = 1000;
+    loader.culler.maxLostTime = 40000;
+  
+    world.camera.controls.addEventListener("sleep", () => {
+      loader.culler.needsUpdate = true;
+    });
+
+    
     document.addEventListener("keydown", (event) => {
       if (world){
         if (event.key === 'w' || event.key === 'W') {
@@ -72,30 +108,21 @@ const ModelViewer = () => {
       }
     });
 
-    const grids = components.get(OBC.Grids);
-    grids.create(world);
-
     const highlighter = components.get(OBF.Highlighter);
     highlighter.setup({ world });
     highlighter.zoomToSelection = true;
 
-    
     const fragments = components.get(OBC.FragmentsManager);
-    const ifcLoader = components.get(OBC.IfcLoader);
 
-    (async () => {
+    const loadBimUiBasic = async () => {
 
-      const currentUrl = window.location.href;
+      await loadModelByUrl(sourceUrl, loader);
 
-      // Parse the URL
-      const url = new URL(currentUrl);
+      BUI.Manager.init();
 
-      // Get the "source" query parameter
-      const sourceUrl = url.searchParams.get("source");
-      if(sourceUrl){
-        await loadModelByUrl(sourceUrl, components, world);
-      }
-     
+      const projectInformationPanel = ProjectInformation(components);
+      
+      const ifcLoader = components.get(OBC.IfcLoader);
       await ifcLoader.setup();
 
       const excludedCats = [
@@ -111,14 +138,13 @@ const ModelViewer = () => {
       ifcLoader.settings.webIfc.COORDINATE_TO_ORIGIN = true;
       ifcLoader.settings.webIfc.OPTIMIZE_PROFILES = true;
 
-      let model;
       async function loadIfc(filepath) {
         const file = await fetch(
           filepath
         );
         const data = await file.arrayBuffer();
         const buffer = new Uint8Array(data);
-        model = await ifcLoader.load(buffer);
+        const model = await ifcLoader.load(buffer);
         model.name = filepath //"example";
         world.scene.three.add(model);
         const indexer = components.get(OBC.IfcRelationsIndexer);
@@ -153,7 +179,7 @@ const ModelViewer = () => {
         link.click();
         link.remove();
       }
-
+      
       async function exportFragments() {
         if (!fragments.groups.size) {
           return;
@@ -170,11 +196,7 @@ const ModelViewer = () => {
 
       function disposeFragments() {
         fragments.dispose();
-      }
-
-      BUI.Manager.init();
-
-      const projectInformationPanel = ProjectInformation(components);
+      } 
 
       const buttonPanel = BUI.Component.create(() => {
         return BUI.html`
@@ -189,7 +211,7 @@ const ModelViewer = () => {
               overflow: hidden;
             "
           >
-           <bim-toolbar-section 
+          <bim-toolbar-section 
             style="
               display: flex; 
               justify-content: center; 
@@ -225,10 +247,10 @@ const ModelViewer = () => {
               disposeFragments();
             }}"
           ></bim-button>
-           </bim-panel-section>
+          </bim-panel-section>
           </bim-toolbar-section>
         `;
-      });      
+      })
 
       const projectPanel = BUI.Component.create(() => {
         return BUI.html`
@@ -311,10 +333,8 @@ const ModelViewer = () => {
 
       app.layout = "main";
       document.body.append(app);
-      
-      
-      
-      
+
+
       //document.body.append(projectPanel);
       //document.body.append(panel);
       
@@ -322,9 +342,10 @@ const ModelViewer = () => {
       //fragments.onFragmentsLoaded.add((model) => {
       //  console.log(model);
       //});
-    })();
+    }
 
-    
+    loadBimUiBasic()
+  
 
     return () => {
       components.dispose();

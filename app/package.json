@@ -15,7 +15,7 @@
     "@mui/material": "^5.15.20",
     "@reduxjs/toolkit": "^2.2.5",
     "@thatopen/components": "^2.4.3",
-    "@thatopen/components-front": "^2.4.2",
+    "@thatopen/components-front": "^2.4.3",
     "@thatopen/fragments": "^2.4.0",
     "@thatopen/ui": "^2.4.1",
     "@thatopen/ui-obc": "^2.4.1",
