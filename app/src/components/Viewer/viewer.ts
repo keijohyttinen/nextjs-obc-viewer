@@ -31,6 +31,10 @@ export async function loadModelByUrl(geometryURL: string, loader: any) {
   }catch(err){
     console.error(err)
   }
+
+  window.setTimeout(() => {
+    loader.culler.needsUpdate = true;
+  }, 1000);
   
   //console.log(model);
 }

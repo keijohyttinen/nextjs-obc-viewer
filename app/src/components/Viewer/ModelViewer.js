@@ -38,6 +38,10 @@ const ModelViewer = () => {
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current) return;
 
+    // See https://github.com/ThatOpen/engine_templates/blob/main/templates/vanilla/src/main.ts
+
+    BUI.Manager.init();
+
     const components = new OBC.Components();
     componentsRef.current = components;
     const worlds = components.get(OBC.Worlds);
@@ -47,8 +51,13 @@ const ModelViewer = () => {
 
     const world = worlds.create();
     world.scene = new OBC.SimpleScene(components);
+    world.scene.setup();
     world.renderer = new OBC.SimpleRenderer(components, containerRef.current);
+    //world.renderer = new OBF.PostproductionRenderer(components, containerRef.current);
+    const { postproduction } = world.renderer;
+
     world.camera = new OBC.SimpleCamera(components);
+    //world.camera = new OBC.OrthoPerspectiveCamera(components);
     
     /*const viewCube = document.createElement("bim-view-cube");
     viewCube.camera = world.camera.three;
@@ -61,8 +70,6 @@ const ModelViewer = () => {
     });*/
 
     components.init();
-    world.scene.setup();
-    world.camera.controls.setLookAt(12, 6, 8, 0, 0, -10);
 
     const grids = components.get(OBC.Grids);
     grids.create(world);
@@ -78,16 +85,25 @@ const ModelViewer = () => {
 
     const baseUrl = sourceUrl.slice(0, sourceUrl.lastIndexOf("/") + 1);
 
-    const loader = components.get(OBF.IfcStreamer);
-    loader.world = world;
-    loader.url = baseUrl;
-    loader.useCache = true;
-    loader.culler.threshold = 20;
-    loader.culler.maxHiddenTime = 1000;
-    loader.culler.maxLostTime = 40000;
+    const tilesLoader = components.get(OBF.IfcStreamer);
+    tilesLoader.world = world;
+    tilesLoader.url = baseUrl;
+    tilesLoader.useCache = true;
+    tilesLoader.culler.threshold = 20;
+    tilesLoader.culler.maxHiddenTime = 1000;
+    tilesLoader.culler.maxLostTime = 40000;
   
+    world.camera.controls.setLookAt(12, 6, 8, 0, 0, -10);
     world.camera.controls.addEventListener("sleep", () => {
-      loader.culler.needsUpdate = true;
+      tilesLoader.culler.needsUpdate = true;
+    });
+
+    const culler = components.get(OBC.Cullers).create(world);
+
+    world.camera.controls.restThreshold = 0.25;
+    world.camera.controls.addEventListener("rest", () => {
+      culler.needsUpdate = true;
+      tilesLoader.culler.needsUpdate = true;
     });
 
     
@@ -116,9 +132,7 @@ const ModelViewer = () => {
 
     const loadBimUiBasic = async () => {
 
-      await loadModelByUrl(sourceUrl, loader);
-
-      BUI.Manager.init();
+      await loadModelByUrl(sourceUrl, tilesLoader);
 
       const projectInformationPanel = ProjectInformation(components);
       
@@ -339,9 +353,9 @@ const ModelViewer = () => {
       //document.body.append(panel);
       
 
-      //fragments.onFragmentsLoaded.add((model) => {
-      //  console.log(model);
-      //});
+      /*fragments.onFragmentsLoaded.add((model) => {
+        console.log(model);
+      });*/
     }
 
     loadBimUiBasic()
