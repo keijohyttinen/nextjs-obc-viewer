@@ -24,11 +24,6 @@ import { loadModelByUrl } from "./viewer";
 // - http://localhost:3005?source=http://localhost:3000/files/models/BwFYh7Gh/ifc-processed.json
 
 
-
-// file: https://raw.githubusercontent.com/ThatOpen/engine_components/refs/heads/main/resources/streaming/small.ifc-processed-properties.json
-//       https://raw.githubusercontent.com/ThatOpen/engine_components/refs/heads/main/resources/streaming/ifc-processed-properties.json
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const ModelViewer = () => {
 
 
