@@ -78,7 +78,9 @@ const ModelViewer = () => {
     let sourceUrl = url.searchParams.get("source");
     //sourceUrl = "https://raw.githubusercontent.com/ThatOpen/engine_components/refs/heads/main/resources/streaming/small.ifc-processed.json"
 
-    const baseUrl = sourceUrl.slice(0, sourceUrl.lastIndexOf("/") + 1);
+    const baseUrl = sourceUrl
+      ? sourceUrl.slice(0, sourceUrl.lastIndexOf("/") + 1)
+      : null;
 
     const tilesLoader = components.get(OBF.IfcStreamer);
     tilesLoader.world = world;
@@ -127,7 +129,9 @@ const ModelViewer = () => {
 
     const loadBimUiBasic = async () => {
 
-      await loadModelByUrl(sourceUrl, tilesLoader);
+      if (sourceUrl){
+        await loadModelByUrl(sourceUrl, tilesLoader);
+      }
 
       const projectInformationPanel = ProjectInformation(components);
       
